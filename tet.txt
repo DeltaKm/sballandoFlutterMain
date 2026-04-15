@@ -1,0 +1,59 @@
+
+
+
+	⁠Crea una webapp per la gestione di un gruppo di palestre, con funzionalità per utenti registrati, amministratori, personal trainer e gestione corsi.
+
+	⁠### Funzionalità principali:
+
+	⁠#### 👤 Autenticazione e abbonamenti:
+
+	⁠* Sistema di *registrazione e login utenti*
+	⁠* Ogni utente ha un *abbonamento annuale* alla piattaforma (con scadenza e verifica validità)
+
+	⁠#### 🏋️ Gestione palestre, corsi e specialità:
+
+	⁠* Ogni *palestra* ha:
+
+    * Una lista dei *corsi disponibili* (es. yoga, crossfit, pilates, ecc.)
+    * Le proprie *specialità* (es. attrezzature, tipi di allenamento)
+    * I propri *personal trainer associati* 	⁠* Sistema backend per *aggiungere/modificare/eliminare palestre, corsi e specialità*
+ 	⁠#### 📅 Iscrizione ai corsi:
+ 	⁠* L’utente può:
+ 
+    * *Iscriversi a uno o più corsi* (se disponibili)
+    * Vedere la *scadenza del corso* e ricevere una *notifica automatica* poco prima della scadenza
+    * *Prenotare i corsi* fino ad esaurimento posti 	⁠* I corsi devono avere:
+ 
+    * *Durata predefinita*
+    * *Costo* associato
+    * *Limite di posti disponibili* (gestito dal backend)
+ 	⁠#### 🧑‍🏫 Personal trainer:
+ 	⁠* Ogni utente può essere *assegnato a uno o più personal trainer* 	⁠* Ogni personal trainer può:
+ 
+    * Aggiungere *schede di allenamento in PDF* per i propri utenti
+    * Avere una *scheda profilo visibile all’utente* con:
+ 
+      * Nome, specialità, corsi che tiene
+      * *Link ai profili social* 	⁠#### 🎛️ Backend/Admin: 	⁠* Dashboard per amministratori:
+ 
+    * Gestione *utenti registrati*
+    * Gestione *palestre, corsi e specialità*
+    * Assegnazione *personal trainer agli utenti*
+    * Visualizzazione *prenotazioni ai corsi*
+    * Chiusura corsi quando *completi o disattivati*
+
+	⁠#### 💡 Extra tecnici:
+
+	⁠* Frontend: HTML, CSS (o Tailwind), JavaScript
+	⁠* Backend: Node.js o Python (Flask o Django)
+	⁠* Database: PostgreSQL, SQLite o MongoDB
+	⁠* Sistema di *notifiche automatiche via email o in-app*
+	⁠* Upload e download di *PDF per schede di allenamento*
+
+	⁠### Obiettivo:
+
+	⁠Generare un’app web funzionante che consenta a un gruppo di palestre di gestire le iscrizioni, i corsi, gli utenti, i personal trainer e tutte le relazioni tra questi elementi.
+	⁠L'app deve essere *deployabile direttamente su Replit*.
+
+
+

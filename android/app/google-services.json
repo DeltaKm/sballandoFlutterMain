@@ -1,0 +1,51 @@
+{
+  "project_info": {
+    "project_number": "8699556000",
+    "project_id": "sballando-df89d",
+    "storage_bucket": "sballando-df89d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:8699556000:android:821a248e4a37d4c14659c5",
+        "android_client_info": {
+          "package_name": "it.sballando.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "8699556000-mhse4hs5fmlcbhha47k0qeqm22ut3sh3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "it.sballando.app",
+            "certificate_hash": "05c00b4b8f2f7053495a42fb7474c5ea2c0d1fe3"
+          }
+        },
+        {
+          "client_id": "8699556000-lr57rud6l7vojt2uduvpbmjm5lvpci3s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDLM3ymZ_rg-0bUGr1oIfeqmGH1v07Ak7s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "8699556000-cqmhdbvqsjvq293aq15bh7ians0tb4mb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "it.sballando.app",
+                "app_store_id": "6749372071"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
