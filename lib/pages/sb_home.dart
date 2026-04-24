@@ -331,6 +331,7 @@ class SbHomeState extends State<SbHome> {
                     // Contenuto scrollabile
     
                     RawScrollbar(
+                      controller: _scrollController,
                       thumbVisibility: true,
                       thumbColor: mainColor,
                       radius: Radius.circular(8),
@@ -424,9 +425,7 @@ class SbHomeState extends State<SbHome> {
                                 //////////////////////////////
                                 /// BARRA DI NAVIGAZIONE
                                 ////////////////////////////// 
-                                
-                                if(NAVIGATIONHOME == 'events')
-                                Image(image: AssetImage('assets/images/cosa-fai-stasera-logo.png'), height: 60,),
+
                                 if(NAVIGATIONHOME == 'events' && events.isEmpty)
                                 Padding(
                                   padding: const EdgeInsets.all(18.0),

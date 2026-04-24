@@ -8,7 +8,6 @@ import 'package:sballando/components/sb_modals.dart';
 import 'package:sballando/components/sb_tab_multi.dart';
 import 'package:sballando/sb_global.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SbJukebox extends StatefulWidget {
   const SbJukebox({super.key});
@@ -19,6 +18,10 @@ class SbJukebox extends StatefulWidget {
 
 class SbJukeboxState extends State<SbJukebox> {
   final ScrollController  _scrollController      = ScrollController();
+  static const String spotifyApiBase = 'https://sballando-back-office.vercel.app/api/spotify';
+  Timer? _searchDebounce;
+  int? _eventId;
+  bool _routeArgsLoaded = false;
 
   double headerHeight = 100;
   double footerHeight = 100;
@@ -39,6 +42,28 @@ class SbJukeboxState extends State<SbJukebox> {
 
   int currentProgressMs = 0;
   int currentDurationMs = 0;
+
+  int? get activeEventId {
+    if (_eventId != null && _eventId! > 0) return _eventId;
+    final fallback = int.tryParse('${EVENTONAIR['id']}');
+    if (fallback != null && fallback > 0) return fallback;
+    return null;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_routeArgsLoaded) return;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && args['eventId'] != null) {
+      final parsed = int.tryParse('${args['eventId']}');
+      if (parsed != null && parsed > 0) {
+        _eventId = parsed;
+      }
+    }
+    _routeArgsLoaded = true;
+  }
 
   @override
   void initState() {
@@ -71,6 +96,7 @@ class SbJukeboxState extends State<SbJukebox> {
     _playbackTimer?.cancel();
     _progressTimer?.cancel();
     pollingTimer?.cancel();
+    _searchDebounce?.cancel();
     super.dispose();
   }
 
@@ -122,9 +148,14 @@ class SbJukeboxState extends State<SbJukebox> {
   }
 
   Future<void> fetchPlaybackQueue() async {
+    final eventId = activeEventId;
+    if (eventId == null) return;
+
     try {
       final response = await http.post(
-        Uri.parse('https://webservice.sballando.it/api/spotify/get_playback_queue?eventId=${EVENTONAIR['id']}'),
+        Uri.parse('$spotifyApiBase/get_playback_queue').replace(
+          queryParameters: {'eventId': '$eventId'},
+        ),
       );
 
       if (response.statusCode == 200) {
@@ -165,38 +196,82 @@ class SbJukeboxState extends State<SbJukebox> {
     }
   }
 
-
-  Future<void> searchSongs(String query) async {
-    if (query.length < 2) return;
-    setState(() => isLoading = true);
-
-    final response = await http.get(
-      Uri.parse(
-          'https://webservice.sballando.it/api/spotify/search?q=$query&eventId=${EVENTONAIR['id']}'),
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final tracksData = data['data']?['tracks'];
-      if (tracksData != null) {
-        searchResults = List.from(tracksData['items']);
-        if (mounted) setState(() {});
-      }
-    }
-
-    setState(() => isLoading = false);
+  void onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      searchSongs(value);
+    });
   }
 
-  Future<bool> canAddTrack() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastAdded = prefs.getInt('last_track_added_at'); // timestamp salvato in ms 
 
-    if (lastAdded == null) return true; // mai aggiunta prima 
+  Future<void> searchSongs(String query) async {
+    if (query.length < 2) {
+      if (mounted) {
+        setState(() {
+          searchResults = [];
+          isLoading = false;
+        });
+      }
+      return;
+    }
 
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final diff = now - lastAdded; 
+    final eventId = activeEventId;
+    if (eventId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Evento non valido per la ricerca Spotify'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
 
-    return diff >= Duration(minutes: 5).inMilliseconds;
+    setState(() => isLoading = true);
+
+    try {
+      final response = await http.get(
+        Uri.parse('$spotifyApiBase/search').replace(
+          queryParameters: {
+            'q': query,
+            'eventId': '$eventId',
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['status'] == true) {
+          final tracksData = data['data']?['tracks'];
+          searchResults = tracksData != null ? List.from(tracksData['items']) : [];
+          if (mounted) setState(() {});
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${data['error'] ?? 'Ricerca Spotify non disponibile'}'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Errore rete durante la ricerca Spotify'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Errore searchSongs: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Errore durante la ricerca canzoni'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => isLoading = false);
+    }
   }
 
   Future<void> addTrack(
@@ -204,22 +279,22 @@ class SbJukeboxState extends State<SbJukebox> {
     Map<String, dynamic> trackData, {
     String? message,
   }) async {
-    final allowed = await canAddTrack();
-    if (!allowed) {
+    final eventId = activeEventId;
+    if (eventId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("⏳ Puoi aggiungere una nuova canzone tra 5 minuti"),
-          backgroundColor: Colors.orangeAccent,
+          content: Text('Evento non valido, impossibile aggiungere il brano'),
+          backgroundColor: Colors.redAccent,
         ),
       );
       return;
     }
 
     final response = await http.post(
-      Uri.parse('https://webservice.sballando.it/api/spotify/add_track'),
+      Uri.parse('$spotifyApiBase/add_track'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'eventId': EVENTONAIR['id'],
+        'eventId': eventId,
         'user_token': USER['token'],
         'trackUri': trackUri,
         'message': message ?? '',
@@ -230,12 +305,8 @@ class SbJukeboxState extends State<SbJukebox> {
       Map data = jsonDecode(response.body);
 
       if (data['status'] == true) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt(
-            'last_track_added_at', DateTime.now().millisecondsSinceEpoch);
-
         Map newMessage = {
-          'event_id': EVENTONAIR['id'],
+          'event_id': eventId,
           'sender_id': USER['id'],
           'message': message,
           'created_at': getCurrentTimeInIsoUtc(),
@@ -249,7 +320,7 @@ class SbJukeboxState extends State<SbJukebox> {
           }
         };
 
-        socketService.sendMessage(USER, EVENTONAIR['id'], newMessage);
+        socketService.sendMessage(USER, eventId, newMessage);
         setState(() {
           playlistTracks.insert(1, {
             'title': trackData['name'],
@@ -269,7 +340,37 @@ class SbJukeboxState extends State<SbJukebox> {
             backgroundColor: mainColor,
           ),
         );
+      } else {
+        final errorMessage = data['error'] ?? 'Impossibile aggiungere la canzone in questo momento';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$errorMessage',
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
+    } else {
+      String backendMessage = 'Errore di connessione durante l\'aggiunta della canzone';
+
+      try {
+        final failData = jsonDecode(response.body);
+        if (failData is Map && failData['error'] != null) {
+          backendMessage = '${failData['error']}';
+        }
+      } catch (_) {}
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            backendMessage,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
   }
 
@@ -412,13 +513,13 @@ class SbJukeboxState extends State<SbJukebox> {
                           controller: searchController,
                           style: TextStyle(color: textColor),
                           decoration: InputDecoration(
-                            hintText: 'Cerca canzone',
+                            hintText: 'Cerca su Spotify',
                             hintStyle: TextStyle(color: textColor),
                             prefixIcon: Icon(Icons.search, color: mainColor),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.symmetric(vertical: 15),
                           ),
-                          onChanged: (value) => searchSongs(value),
+                          onChanged: onSearchChanged,
                         ),
                       ),
                       SizedBox(height: 10),
@@ -489,38 +590,55 @@ class SbJukeboxState extends State<SbJukebox> {
                                                 validatorFunction: (value) {},
                                               ),
                                               const SizedBox(height: 30),
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                                children: [
-                                                  Expanded(
-                                                    child: SbButtonMaincolor(
-                                                      label: 'Annulla',
-                                                      function: () => Navigator.pop(context),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 15),
-                                                  Expanded(
-                                                    child: SbButtonMaincolor(
-                                                      label: 'Conferma',
-                                                      function: () {
-                                                        Modals().showMessageConfirme(
-                                                          context,
-                                                          'Aggiungi in Coda',
-                                                          'Sei sicuro di voler aggiungere questa canzone in coda?',
-                                                          () {
-                                                            addTrack(track['uri'], track, message: dedicaController.text);
-                                                            Navigator.pop(context);
-                                                            Navigator.pop(context);
-                                                          },
-                                                          () {
-                                                            Navigator.pop(context);
-                                                            Navigator.pop(context);
-                                                          },
-                                                        );
-                                                      },
-                                                    ),
-                                                  ),
-                                                ],
+                                              LayoutBuilder(
+                                                builder: (context, constraints) {
+                                                  final textScale = MediaQuery.textScalerOf(context).scale(1);
+                                                  final stackButtons = constraints.maxWidth < 320 || textScale > 1.1;
+
+                                                  final cancelButton = SbButtonMaincolor(
+                                                    label: 'Annulla',
+                                                    function: () => Navigator.pop(context),
+                                                  );
+
+                                                  final confirmButton = SbButtonMaincolor(
+                                                    label: 'Conferma',
+                                                    function: () {
+                                                      Modals().showMessageConfirme(
+                                                        context,
+                                                        'Aggiungi in Coda',
+                                                        'Sei sicuro di voler aggiungere questa canzone in coda?',
+                                                        () {
+                                                          addTrack(track['uri'], track, message: dedicaController.text);
+                                                          Navigator.pop(context);
+                                                          Navigator.pop(context);
+                                                        },
+                                                        () {
+                                                          Navigator.pop(context);
+                                                          Navigator.pop(context);
+                                                        },
+                                                      );
+                                                    },
+                                                  );
+
+                                                  if (stackButtons) {
+                                                    return Column(
+                                                      children: [
+                                                        SizedBox(width: double.infinity, child: cancelButton),
+                                                        const SizedBox(height: 12),
+                                                        SizedBox(width: double.infinity, child: confirmButton),
+                                                      ],
+                                                    );
+                                                  }
+
+                                                  return Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                                    children: [
+                                                      Expanded(child: cancelButton),
+                                                      const SizedBox(width: 15),
+                                                      Expanded(child: confirmButton),
+                                                    ],
+                                                  );
+                                                },
                                               ),
                                             ],
                                           ),

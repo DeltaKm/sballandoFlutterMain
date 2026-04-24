@@ -30,28 +30,42 @@ class SbLocationShowState extends State<SbLocationShow> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((timestamp) async {
-      final args            = ModalRoute.of(context)!.settings.arguments as Map;
-      locationId            = args['locationId'];
+      final args = ModalRoute.of(context)?.settings.arguments as Map?;
+      if (args == null || args['locationId'] == null) {
+        loader = false;
+        if (mounted) {
+          setState(() {});
+        }
+        return;
+      }
+
+      locationId = args['locationId'];
       dynamic data          = await ApiLocation().getLocation(locationId!);
       dynamic dataEvents    = await ApiLocation().fetchUpcomingPastEvent(locationId!);
-      if(dataEvents['status'] != false){
-        pastEvents          = dataEvents['pastEvents'];
-        upcomingEvents      = dataEvents['upcomingEvents'];
+      if (dataEvents != null && dataEvents['status'] != false) {
+        final pastRaw = dataEvents['pastEvents'];
+        final upcomingRaw = dataEvents['upcomingEvents'];
+
+        pastEvents = pastRaw is List ? pastRaw : [];
+        upcomingEvents = upcomingRaw is List ? upcomingRaw : [];
       }
-      if(data['status'] != null){
+      if(data != null && data['status'] != null){
         location            = data['location'];
         auth                = data['auth'];
 
-        String coordinate   = data['location']['coordinates'];
-        final parts         = coordinate.split(',');
-        latitude            = double.parse(parts[0].trim());
-        longitude           = double.parse(parts[1].trim());
-        print("Coordinate ricevute: $latitude  $longitude");
+        final coordinate = data['location']?['coordinates'];
+        if (coordinate is String && coordinate.contains(',')) {
+          final parts = coordinate.split(',');
+          if (parts.length >= 2) {
+            latitude = double.tryParse(parts[0].trim()) ?? 0;
+            longitude = double.tryParse(parts[1].trim()) ?? 0;
+          }
+        }
       }
       loader = false;
-      setState(() {
-        
-      });
+      if (mounted) {
+        setState(() {});
+      }
     });
   }
 

@@ -287,8 +287,17 @@ String extractTime(String dateTimeString) {
 }
 
 DateTime parseServerDateTime(String value) {
-  final parsed = DateTime.parse(value);
-  return parsed.isUtc ? parsed.toLocal() : parsed;
+  final raw = value.trim();
+
+  String normalized = raw;
+  if (normalized.contains(' ') && !normalized.contains('T')) {
+    normalized = normalized.replaceFirst(' ', 'T');
+  }
+
+  final hasTimezone = RegExp(r'(Z|[+-]\d{2}:\d{2})$').hasMatch(normalized);
+  final utcInput = hasTimezone ? normalized : '${normalized}Z';
+
+  return DateTime.parse(utcInput).toLocal();
 }
 
 double width(BuildContext context, int percentage) {
